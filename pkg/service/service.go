@@ -3,10 +3,13 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"service2/pb"
 	"service2/pkg/entity"
 	repo "service2/pkg/repository"
+
+	"github.com/golang/protobuf/ptypes"
 )
 
 type AdminDashboard struct {
@@ -143,6 +146,12 @@ func (s *AdminDashboard) TogglePermission(ctx context.Context, req *pb.TogglePer
 }
 
 func (s *AdminDashboard) CreateApparel(ctx context.Context, req *pb.CreateApparelRequest) (*pb.CreateApparelResponse, error) {
+	jwtToken, ok := ctx.Value("jwtToken").(string)
+	if !ok {
+		fmt.Println("unable to retrieve JWT token from context")
+	} else {
+		fmt.Println(jwtToken)
+	}
 	err := repo.GetByApparelName(req.Name)
 	if err == nil {
 		return nil, errors.New("product already exists")
@@ -205,14 +214,19 @@ func (s *AdminDashboard) DeleteApparel(ctx context.Context, req *pb.DeleteAppare
 }
 
 func (s *AdminDashboard) AddCoupon(ctx context.Context, req *pb.AddCouponRequest) (*pb.AddCouponResponse, error) {
+	validTime, err := ptypes.Timestamp(req.Valid)
+	if err != nil {
+		return nil, errors.New("Creating Timestamp failed")
+	}
 	coupon := &entity.Coupon{
 		Code:       req.Code,
 		Type:       req.Type,
 		Category:   req.Category,
 		Amount:     int(req.Amount),
 		UsageLimit: int(req.Limit),
+		ValidUntil: validTime,
 	}
-	err := repo.CreateCoupon(coupon)
+	err = repo.CreateCoupon(coupon)
 	if err != nil {
 		return nil, errors.New("Creating Coupon failed")
 	} else {
